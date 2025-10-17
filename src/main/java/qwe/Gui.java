@@ -1,12 +1,14 @@
 package qwe;
 
 import java.awt.BorderLayout;
+import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.util.ArrayList;
 
-import javax.swing.BoxLayout;
+import javax.swing.AbstractCellEditor;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
@@ -14,13 +16,12 @@ import javax.swing.table.AbstractTableModel;
 
 import javax.swing.JButton;
 import javax.swing.JDialog;
-import javax.swing.JScrollBar;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
-import javax.swing.JTextArea;
 import javax.swing.JTextField;
-import javax.swing.SwingUtilities;
-import javax.swing.border.Border;
+import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.TableCellEditor;
+import javax.swing.table.TableCellRenderer;
 
 class NewTableModel extends AbstractTableModel {
 
@@ -29,11 +30,18 @@ class NewTableModel extends AbstractTableModel {
 
     public NewTableModel(String[] columnNames) {
         this.data = new ArrayList<>();
-    };
+    }
 
     public void addRow(Aircraft a) {
         int newRow = this.data.size();
         this.data.add(a);
+        a.addPropertyChangeListener(evt -> {
+            if ("status".equals(evt.getPropertyName())) {
+                int row = data.indexOf(a);
+                if (row >= 0)
+                    fireTableCellUpdated(row, 2);
+            }
+        });
         fireTableRowsInserted(newRow, newRow);
     }
 
@@ -52,7 +60,10 @@ class NewTableModel extends AbstractTableModel {
             case 3 -> "Akcja";
             default -> null;
         };
+    }
 
+    public Aircraft getPlane(int x) {
+        return data.get(x);
     }
 
     @Override
@@ -60,11 +71,81 @@ class NewTableModel extends AbstractTableModel {
         return data.size();
     }
 
+    @Override
+    public boolean isCellEditable(int row, int col) {
+        return col == 3;
+    }
+}
+
+class TableButtonEditor extends AbstractCellEditor implements TableCellEditor, TableCellRenderer, ActionListener {
+    private final JButton button;
+    private int currentRow;
+    private final JTable table;
+
+    public TableButtonEditor(JTable table, String text) {
+        this.table = table;
+        this.button = new JButton(text);
+        this.button.addActionListener(this);
+    }
+
+    @Override
+    public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus,
+            int row, int column) {
+        return button;
+    }
+
+    @Override
+    public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected, int row, int column) {
+        this.currentRow = row;
+        return button;
+    }
+
+    @Override
+    public void actionPerformed(ActionEvent e) {
+        final NewTableModel model = (NewTableModel) table.getModel();
+        final int row = currentRow;
+        final Aircraft a = model.getPlane(row);
+
+        fireEditingStopped();
+
+        new javax.swing.SwingWorker<Void, Void>() {
+            @Override
+            protected Void doInBackground() {
+                a.performFlight();
+                return null;
+            }
+
+            @Override
+            protected void done() {
+                model.fireTableCellUpdated(row, 2);
+            }
+        }.execute();
+    }
+
+    @Override
+    public String getCellEditorValue() {
+        return "";
+    }
+}
+
+class CustomButtonRenderer extends DefaultTableCellRenderer {
+    @Override
+    public Component getTableCellRendererComponent(
+            JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
+
+        Component c = super.getTableCellRendererComponent(table, value, isSelected, hasFocus, row, column);
+
+        if (value != null) {
+            JButton button = new JButton("Start");
+            return button;
+        }
+        return c;
+    }
 }
 
 public class Gui {
 
-    private static void createAndShowGUI() {
+    public static void createAndShowGUI() {
         JFrame frame = new JFrame("AirportApp");
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 
@@ -79,6 +160,8 @@ public class Gui {
         NewTableModel model = new NewTableModel(cols);
         model.addRow(plane);
         JTable table = new JTable(model);
+        table.getColumnModel().getColumn(3).setCellRenderer(new CustomButtonRenderer());
+        table.getColumnModel().getColumn(3).setCellEditor(new TableButtonEditor(table, "Start"));
 
         JPanel buttonPanel = new JPanel(new FlowLayout());
         JButton button = new JButton("Dodaj");
@@ -115,13 +198,12 @@ public class Gui {
 
             JButton create = new JButton("Stwórz");
             create.addActionListener((ActionEvent _) -> {
-                PassengerPlane newPlane = new PassengerPlane(textField.getText(),
+                PassengerPlane newPlane = new PassengerPlane(
+                        textField.getText(),
                         Double.parseDouble(field2.getText()),
                         Double.parseDouble(field3.getText()));
                 model.addRow(newPlane);
-                model.fireTableRowsInserted(0, model.getRowCount() - 1);
                 dialog.dispose();
-
             });
             dialog.add(create, BorderLayout.SOUTH);
             dialog.setVisible(true);
@@ -135,9 +217,4 @@ public class Gui {
 
     }
 
-    public static void main(String[] args) {
-        javax.swing.SwingUtilities.invokeLater(() -> {
-            createAndShowGUI();
-        });
-    }
 }
