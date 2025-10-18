@@ -2,8 +2,10 @@ package qwe;
 
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
+import java.util.List;
 
 import javax.swing.SwingUtilities;
+import javax.swing.SwingWorker;
 
 abstract class Aircraft {
     private final String model;
@@ -78,18 +80,27 @@ interface Serviceable {
 class PassengerPlane extends Aircraft implements Flyable, Serviceable {
     @Override
     public void performFlight() {
-        Thread t = new Thread(() -> {
-            try {
-                this.setStatus("Samolot " + this.getModel() + " wystartował z lotniska");
-                Thread.sleep(2000);
-                this.setStatus("Samolot " + this.getModel() + " jest w locie");
-                Thread.sleep(2000);
-                this.setStatus("Samolot " + this.getModel() + " wylądował na lotnisku docelowym");
-            } catch (InterruptedException e) {
-                System.err.println(e);
+        SwingWorker<Void, String> worker = new SwingWorker<Void, String>() {
+            @Override
+            protected Void doInBackground() throws Exception {
+                publish("Samolot " + getModel() + " wystartował z lotniska");
+                Thread.sleep(1000);
+                publish("Samolot " + getModel() + " jest w locie");
+                Thread.sleep(1000);
+                publish("Samolot " + getModel() + " wylądował na lotnisku docelowym");
+
+                return null;
+
             }
-        });
-        t.start();
+
+            @Override
+            protected void process(List<String> chunks) {
+                for (String status : chunks) {
+                    setStatus(status);
+                }
+            }
+        };
+        worker.execute();
     }
 
     @Override
@@ -111,21 +122,27 @@ class PassengerPlane extends Aircraft implements Flyable, Serviceable {
 class CargoPlane extends Aircraft implements Flyable {
     @Override
     public void performFlight() {
-        Thread t = new Thread(() -> {
-            try {
-                this.setStatus("Samolot " + this.getModel() + " wystartował z lotniska z pokładem");
+        SwingWorker<Void, String> worker = new SwingWorker<Void, String>() {
+            @Override
+            protected Void doInBackground() throws Exception {
+                publish("Samolot " + getModel() + " wystartował z lotniska z pokładem");
                 Thread.sleep(1000);
-                this.setStatus("Samolot " + this.getModel() + " jest w locie");
+                publish("Samolot " + getModel() + " jest w locie");
                 Thread.sleep(1000);
-                this.setStatus(
-                        "Samolot " + this.getModel() + " wylądował na lotnisku docelowym i oczekiuje rozładunku");
+                publish("Samolot " + getModel() + " wylądował na lotnisku docelowym i oczekiwa rozładunku");
                 Thread.sleep(1000);
-                this.setStatus("Samolot " + this.getModel() + " został rozładowany");
-            } catch (InterruptedException e) {
-                System.err.println(e);
+                publish("Samolot " + getModel() + " został rozładowany");
+                return null;
             }
-        });
-        t.start();
+
+            @Override
+            protected void process(java.util.List<String> chunks) {
+                for (String status : chunks) {
+                    setStatus(status);
+                }
+            }
+        };
+        worker.execute();
     }
 
     @Override

@@ -16,20 +16,24 @@ import javax.swing.table.AbstractTableModel;
 
 import javax.swing.JButton;
 import javax.swing.JDialog;
+import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
+import javax.swing.SwingWorker;
 import javax.swing.table.DefaultTableCellRenderer;
+import javax.swing.table.DefaultTableModel;
 import javax.swing.table.TableCellEditor;
 import javax.swing.table.TableCellRenderer;
 
 class NewTableModel extends AbstractTableModel {
 
-    private final String[] columnNames = { "Model", "Typ", "Status", "Akcja" };
+    private final String[] columnNames;
     private final ArrayList<Aircraft> data;
 
     public NewTableModel(String[] columnNames) {
         this.data = new ArrayList<>();
+        this.columnNames = columnNames;
     }
 
     public void addRow(Aircraft a) {
@@ -38,8 +42,9 @@ class NewTableModel extends AbstractTableModel {
         a.addPropertyChangeListener(evt -> {
             if ("status".equals(evt.getPropertyName())) {
                 int row = data.indexOf(a);
-                if (row >= 0)
+                if (row >= 0) {
                     fireTableCellUpdated(row, 2);
+                }
             }
         });
         fireTableRowsInserted(newRow, newRow);
@@ -54,11 +59,16 @@ class NewTableModel extends AbstractTableModel {
     public Object getValueAt(int rowIndex, int columnIndex) {
         Aircraft a = data.get(rowIndex);
         return switch (columnIndex) {
-            case 0 -> a.getModel();
-            case 1 -> a.getClass().getSimpleName();
-            case 2 -> a.getStatus();
-            case 3 -> "Akcja";
-            default -> null;
+            case 0 ->
+                a.getModel();
+            case 1 ->
+                a.getClass().getSimpleName();
+            case 2 ->
+                a.getStatus();
+            case 4 ->
+                "Akcja";
+            default ->
+                null;
         };
     }
 
@@ -73,11 +83,12 @@ class NewTableModel extends AbstractTableModel {
 
     @Override
     public boolean isCellEditable(int row, int col) {
-        return col == 3;
+        return col == 4;
     }
 }
 
 class TableButtonEditor extends AbstractCellEditor implements TableCellEditor, TableCellRenderer, ActionListener {
+
     private final JButton button;
     private int currentRow;
     private final JTable table;
@@ -129,6 +140,7 @@ class TableButtonEditor extends AbstractCellEditor implements TableCellEditor, T
 }
 
 class CustomButtonRenderer extends DefaultTableCellRenderer {
+
     @Override
     public Component getTableCellRendererComponent(
             JTable table, Object value, boolean isSelected, boolean hasFocus, int row, int column) {
@@ -143,6 +155,30 @@ class CustomButtonRenderer extends DefaultTableCellRenderer {
     }
 }
 
+class ProgressBarRenderer extends JProgressBar implements TableCellRenderer {
+
+    public ProgressBarRenderer() {
+        super(0, 100);
+    }
+
+    @Override
+    public Component getTableCellRendererComponent(JTable table, Object value, boolean isSelected, boolean hasFocus,
+            int row, int column) {
+
+        int progress;
+        if (value == null) {
+            progress = 0;
+        } else {
+            progress = (int) value;
+        }
+
+        setValue(progress);
+
+        return this;
+
+    }
+}
+
 public class Gui {
 
     public static void createAndShowGUI() {
@@ -153,15 +189,16 @@ public class Gui {
 
         frame.setLayout(new BorderLayout());
 
-        String[] cols = { "Model", "Typ", "Status", "Akcja" };
+        String[] cols = { "Model", "Typ", "Status", "Progres lotu", "Akcja", };
 
         PassengerPlane plane = new PassengerPlane("Airbus A320", 240, 123);
 
         NewTableModel model = new NewTableModel(cols);
         model.addRow(plane);
         JTable table = new JTable(model);
-        table.getColumnModel().getColumn(3).setCellRenderer(new CustomButtonRenderer());
-        table.getColumnModel().getColumn(3).setCellEditor(new TableButtonEditor(table, "Start"));
+        table.getColumnModel().getColumn(4).setCellRenderer(new CustomButtonRenderer());
+        table.getColumnModel().getColumn(4).setCellEditor(new TableButtonEditor(table, "Start"));
+        table.getColumnModel().getColumn(3).setCellRenderer(new ProgressBarRenderer());
 
         JPanel buttonPanel = new JPanel(new FlowLayout());
         JButton button = new JButton("Dodaj");
